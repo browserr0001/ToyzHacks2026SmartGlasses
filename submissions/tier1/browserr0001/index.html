@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ToyzHacks 2026 — Smart Glasses Power Circuit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;500;700;900&display=swap" rel="stylesheet" />
+  <style>
+    /* ═══════════════════════════════════════════════
+       TOKENS
+    ═══════════════════════════════════════════════ */
+    :root {
+      --bg:         #03080f;
+      --panel:      #07111e;
+      --panel-alt:  #0b1929;
+      --border:     rgba(0,210,255,0.18);
+      --border-hi:  rgba(0,210,255,0.55);
+      --cyan:       #00d2ff;
+      --cyan-dim:   #007fa0;
+      --green:      #39ff8a;
+      --red:        #ff3b5c;
+      --amber:      #ffb830;
+      --text:       #cce8f4;
+      --text-muted: #4a7a96;
+      --mono:       'Share Tech Mono', monospace;
+      --sans:       'Exo 2', sans-serif;
+    }
+
+    /* ═══════════════════════════════════════════════
+       RESET + BASE
+    ═══════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* starfield */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        radial-gradient(1px 1px at 10% 20%, rgba(0,210,255,0.4) 0%, transparent 100%),
+        radial-gradient(1px 1px at 85% 10%, rgba(255,255,255,0.3) 0%, transparent 100%),
+        radial-gradient(1px 1px at 30% 75%, rgba(0,210,255,0.25) 0%, transparent 100%),
+        radial-gradient(1px 1px at 70% 55%, rgba(255,255,255,0.2) 0%, transparent 100%),
+        radial-gradient(1px 1px at 55% 35%, rgba(0,210,255,0.3) 0%, transparent 100%),
+        radial-gradient(1px 1px at 92% 80%, rgba(255,255,255,0.25) 0%, transparent 100%),
+        radial-gradient(1px 1px at 5%  60%, rgba(255,255,255,0.2) 0%, transparent 100%),
+        radial-gradient(1px 1px at 45% 90%, rgba(0,210,255,0.2) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 20% 45%, rgba(255,255,255,0.15) 0%, transparent 100%),
+        radial-gradient(1px 1px at 78% 30%, rgba(0,210,255,0.35) 0%, transparent 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* scanline overlay */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.06) 2px,
+        rgba(0,0,0,0.06) 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ═══════════════════════════════════════════════
+       LAYOUT
+    ═══════════════════════════════════════════════ */
+    .page { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 48px 20px 100px; }
+
+    /* ═══════════════════════════════════════════════
+       HEADER
+    ═══════════════════════════════════════════════ */
+    .header-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--mono); font-size: 11px; letter-spacing: 3px;
+      color: var(--cyan); text-transform: uppercase;
+      border: 1px solid var(--border); border-radius: 4px;
+      padding: 5px 12px; margin-bottom: 18px;
+    }
+    .pulse-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.75); }
+    }
+
+    h1 {
+      font-size: clamp(26px, 5vw, 40px); font-weight: 900;
+      line-height: 1.1; margin-bottom: 10px;
+      color: #fff;
+      text-shadow: 0 0 40px rgba(0,210,255,0.3);
+    }
+    h1 span { color: var(--cyan); }
+
+    .subtitle {
+      font-size: 14px; color: var(--text-muted); line-height: 1.7;
+      max-width: 560px; margin-bottom: 32px;
+    }
+    .subtitle strong { color: var(--cyan); }
+
+    /* ═══════════════════════════════════════════════
+       PROGRESS BAR
+    ═══════════════════════════════════════════════ */
+    .progress-track {
+      height: 3px; background: rgba(0,210,255,0.1);
+      border-radius: 2px; margin-bottom: 40px; position: relative;
+      overflow: visible;
+    }
+    .progress-fill {
+      height: 100%; background: linear-gradient(90deg, var(--cyan-dim), var(--cyan));
+      border-radius: 2px; transition: width 0.6s cubic-bezier(.4,0,.2,1);
+      box-shadow: 0 0 12px var(--cyan);
+      position: relative;
+    }
+    .progress-fill::after {
+      content: '';
+      position: absolute; right: -4px; top: -3px;
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--cyan); box-shadow: 0 0 10px var(--cyan);
+    }
+    .progress-label {
+      font-family: var(--mono); font-size: 11px; color: var(--text-muted);
+      margin-bottom: 10px; letter-spacing: 1px;
+    }
+
+    /* ═══════════════════════════════════════════════
+       NARRATIVE
+    ═══════════════════════════════════════════════ */
+    .narrative {
+      border: 1px solid rgba(0,210,255,0.15);
+      border-left: 3px solid var(--cyan);
+      background: rgba(0,210,255,0.04);
+      border-radius: 0 8px 8px 0;
+      padding: 20px 24px; margin-bottom: 36px;
+    }
+    .narrative-label {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 3px;
+      color: var(--cyan); margin-bottom: 10px;
+    }
+    .narrative p { font-size: 14px; color: var(--text); line-height: 1.8; }
+
+    /* ═══════════════════════════════════════════════
+       SECTION HEADING
+    ═══════════════════════════════════════════════ */
+    .section-head {
+      display: flex; align-items: center; gap: 12px;
+      margin: 40px 0 16px;
+    }
+    .section-num {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
+      color: var(--bg); background: var(--cyan);
+      padding: 3px 8px; border-radius: 3px;
+    }
+    .section-head h2 {
+      font-size: 16px; font-weight: 700; color: var(--cyan); letter-spacing: 1px;
+    }
+
+    /* ═══════════════════════════════════════════════
+       SPEC TABLE
+    ═══════════════════════════════════════════════ */
+    .spec-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px; margin-bottom: 24px;
+    }
+    .spec-cell {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px 16px;
+    }
+    .spec-cell-label {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
+      color: var(--text-muted); margin-bottom: 6px;
+    }
+    .spec-cell-val {
+      font-size: 15px; font-weight: 700; color: #fff;
+    }
+    .spec-cell-val.highlight { color: var(--cyan); font-family: var(--mono); }
+
+    .formula-box {
+      background: var(--panel-alt); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px 20px;
+      font-family: var(--mono); font-size: 15px;
+      color: var(--cyan); margin-bottom: 24px;
+      text-align: center; letter-spacing: 1px;
+    }
+
+    /* ═══════════════════════════════════════════════
+       TASK CARD
+    ═══════════════════════════════════════════════ */
+    .task {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px; padding: 24px;
+      margin-bottom: 16px;
+      transition: border-color 0.3s, opacity 0.3s, box-shadow 0.3s;
+    }
+    .task.locked { opacity: 0.35; pointer-events: none; }
+    .task.complete {
+      border-color: rgba(57,255,138,0.5);
+      box-shadow: 0 0 20px rgba(57,255,138,0.07);
+    }
+
+    .task-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .task-tag {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
+      color: var(--text-muted);
+    }
+    .task-status {
+      font-family: var(--mono); font-size: 11px; font-weight: 700;
+      color: var(--text-muted); letter-spacing: 1px;
+    }
+    .task-status.done { color: var(--green); }
+
+    .task-desc { font-size: 14px; color: var(--text); line-height: 1.7; margin-bottom: 18px; }
+    .task-desc strong { color: #fff; }
+
+    /* ═══════════════════════════════════════════════
+       INPUTS
+    ═══════════════════════════════════════════════ */
+    label {
+      display: block; font-family: var(--mono); font-size: 11px;
+      letter-spacing: 2px; color: var(--text-muted); margin-bottom: 6px;
+    }
+
+    input[type="number"], input[type="text"], select {
+      width: 100%; padding: 11px 14px;
+      background: #050d18;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: #fff; font-family: var(--mono); font-size: 14px;
+      outline: none; margin-bottom: 14px;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus { border-color: var(--cyan); }
+    select option { background: #050d18; }
+
+    /* ═══════════════════════════════════════════════
+       SLIDER
+    ═══════════════════════════════════════════════ */
+    .slider-wrap { margin-bottom: 18px; }
+    .slider-row { display: flex; align-items: center; gap: 14px; }
+    .slider-label { font-family: var(--mono); font-size: 11px; color: var(--text-muted); letter-spacing: 1px; min-width: 140px; }
+    input[type="range"] {
+      flex: 1; height: 4px; accent-color: var(--cyan);
+      cursor: pointer; margin: 0;
+      background: var(--border); border-radius: 2px;
+    }
+    .slider-value {
+      font-family: var(--mono); font-size: 14px; font-weight: 700;
+      color: var(--cyan); min-width: 72px; text-align: right;
+    }
+
+    /* ═══════════════════════════════════════════════
+       BUTTONS
+    ═══════════════════════════════════════════════ */
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+
+    button {
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 11px 22px; border: none; border-radius: 7px;
+      cursor: pointer; transition: all 0.18s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--cyan-dim), var(--cyan));
+      color: var(--bg);
+    }
+    .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--cyan);
+    }
+    .btn-secondary:hover { border-color: var(--cyan); background: rgba(0,210,255,0.06); }
+
+    /* ═══════════════════════════════════════════════
+       FEEDBACK
+    ═══════════════════════════════════════════════ */
+    .feedback {
+      font-family: var(--mono); font-size: 13px; padding: 12px 16px;
+      border-radius: 7px; margin-top: 14px; display: none;
+      line-height: 1.6; animation: fadeIn 0.25s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .feedback.show  { display: block; }
+    .feedback.ok    { background: rgba(57,255,138,0.08); color: var(--green);  border: 1px solid rgba(57,255,138,0.3); }
+    .feedback.bad   { background: rgba(255,59,92,0.08);  color: var(--red);    border: 1px solid rgba(255,59,92,0.3); }
+    .feedback.info  { background: rgba(255,184,48,0.08); color: var(--amber);  border: 1px solid rgba(255,184,48,0.3); }
+
+    /* ═══════════════════════════════════════════════
+       OSCILLOSCOPE
+    ═══════════════════════════════════════════════ */
+    .oscillo-wrapper {
+      position: relative; margin-bottom: 14px;
+      border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    }
+    canvas {
+      display: block; width: 100%; height: 180px;
+      background: #010508;
+    }
+    .oscillo-overlay {
+      position: absolute; bottom: 10px; left: 12px;
+      font-family: var(--mono); font-size: 11px; color: var(--cyan-dim);
+    }
+    .ripple-readout {
+      font-family: var(--mono); font-size: 14px; font-weight: 700;
+      color: var(--text); margin-bottom: 16px;
+    }
+    .ripple-readout .val { font-size: 22px; }
+    .ripple-readout .val.good { color: var(--green); text-shadow: 0 0 12px var(--green); }
+    .ripple-readout .val.warn { color: var(--amber); }
+    .ripple-readout .val.bad  { color: var(--red); }
+
+    /* ═══════════════════════════════════════════════
+       SUCCESS CARD
+    ═══════════════════════════════════════════════ */
+    .success-card {
+      display: none;
+      margin-top: 48px;
+      background: var(--panel); border: 1px solid rgba(57,255,138,0.35);
+      border-radius: 12px; padding: 40px 32px; text-align: center;
+      animation: fadeIn 0.4s ease;
+      box-shadow: 0 0 60px rgba(57,255,138,0.06), inset 0 0 40px rgba(57,255,138,0.03);
+    }
+    .success-card.show { display: block; }
+    .success-icon { font-size: 48px; margin-bottom: 16px; }
+    .success-card h2 {
+      font-size: 24px; font-weight: 900; color: var(--green);
+      letter-spacing: 1px; margin-bottom: 8px;
+    }
+    .success-card p { font-size: 14px; color: var(--text); line-height: 1.7; margin-bottom: 24px; max-width: 420px; margin-left: auto; margin-right: auto; }
+
+    .cta-btn {
+      display: inline-block;
+      padding: 14px 32px;
+      background: linear-gradient(135deg, #007a4a, var(--green));
+      color: var(--bg); font-weight: 900; font-size: 12px;
+      letter-spacing: 2px; text-transform: uppercase;
+      border-radius: 8px; text-decoration: none;
+      transition: filter 0.18s, transform 0.18s;
+    }
+    .cta-btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
+    .cta-note { font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 14px; }
+
+    /* ═══════════════════════════════════════════════
+       CIRCUIT DIAGRAM (SVG)
+    ═══════════════════════════════════════════════ */
+    .diagram-wrap {
+      margin-bottom: 24px; border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden; background: var(--panel);
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ─────────────────── HEADER ────────────────────────── -->
+  <div class="header-badge"><div class="pulse-dot"></div> STATION ZENITH-9 // LIVE</div>
+  <h1>Smart Glasses<br/><span>Power Circuit</span></h1>
+  <p class="subtitle">
+    You're orbiting Earth aboard Zenith-9. Your AR smart glasses are <strong>dead</strong>.
+    Rebuild the power management circuit before the next EVA window or the mission is scrubbed.
+    Submissions due <strong>April 9</strong> · Leaderboard live April 10–11 at CMU Carnival.
+  </p>
+
+  <!-- progress -->
+  <p class="progress-label" id="progressLabel">MISSION STATUS — 0 / 3 OBJECTIVES COMPLETE</p>
+  <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <!-- ─────────────────── NARRATIVE ────────────────────────── -->
+  <div class="narrative">
+    <div class="narrative-label">▶ MISSION BRIEFING · T+00:00:00</div>
+    <p>
+      Your AR heads-up display has gone dark. Diagnostics point to a failed decoupling capacitor
+      on the PMIC power rail. Without stable 3.3&nbsp;V, the display processor won't cold-boot.
+      You have a LiPo cell, a replacement PMIC, and a bin of standard capacitors recovered from
+      a decommissioned sensor pod. Calculate the correct value, select the component,
+      and verify the rail on the oscilloscope — then get those glasses back online.
+    </p>
+  </div>
+
+  <!-- ─────────────────── CHAPTER 1: SPEC ────────────────────────── -->
+  <div class="section-head">
+    <span class="section-num">01</span>
+    <h2>CIRCUIT SPECIFICATION</h2>
+  </div>
+
+  <div class="spec-grid">
+    <div class="spec-cell">
+      <div class="spec-cell-label">POWER SOURCE</div>
+      <div class="spec-cell-val">LiPo 3.7V / 1000mAh</div>
+    </div>
+    <div class="spec-cell">
+      <div class="spec-cell-label">PMIC OUTPUT</div>
+      <div class="spec-cell-val">3.3 V regulated</div>
+    </div>
+    <div class="spec-cell">
+      <div class="spec-cell-label">PEAK DRAW</div>
+      <div class="spec-cell-val highlight">I = 500 mA</div>
+    </div>
+    <div class="spec-cell">
+      <div class="spec-cell-label">RIPPLE TARGET</div>
+      <div class="spec-cell-val highlight">ΔV ≤ 50 mV</div>
+    </div>
+    <div class="spec-cell">
+      <div class="spec-cell-label">PMIC SWITCH PERIOD</div>
+      <div class="spec-cell-val highlight">Δt = 1 µs (1 MHz)</div>
+    </div>
+    <div class="spec-cell">
+      <div class="spec-cell-label">FORMULA</div>
+      <div class="spec-cell-val highlight">C = I · Δt / ΔV</div>
+    </div>
+  </div>
+
+  <!-- Circuit diagram -->
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 680 160" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;font-family:'Share Tech Mono',monospace">
+      <defs>
+        <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <!-- rails -->
+      <line x1="40" y1="50"  x2="640" y2="50"  stroke="#00d2ff" stroke-width="2" opacity="0.6"/>
+      <line x1="40" y1="120" x2="640" y2="120" stroke="#4a7a96" stroke-width="2" opacity="0.6"/>
+      <!-- LIPO -->
+      <rect x="40" y="38" width="60" height="78" rx="5" fill="#07111e" stroke="#00d2ff" stroke-width="1.5"/>
+      <text x="70" y="73" fill="#00d2ff" font-size="9" text-anchor="middle">LIPO</text>
+      <text x="70" y="86" fill="#cce8f4" font-size="8" text-anchor="middle">3.7V</text>
+      <!-- PMIC -->
+      <rect x="200" y="30" width="80" height="96" rx="5" fill="#07111e" stroke="#00d2ff" stroke-width="1.5"/>
+      <text x="240" y="70" fill="#00d2ff" font-size="9" text-anchor="middle">PMIC</text>
+      <text x="240" y="83" fill="#cce8f4" font-size="8" text-anchor="middle">3.3V out</text>
+      <text x="240" y="96" fill="#4a7a96" font-size="7.5" text-anchor="middle">1MHz SW</text>
+      <!-- Capacitor -->
+      <line x1="400" y1="50"  x2="400" y2="82"  stroke="#00d2ff" stroke-width="2"/>
+      <line x1="380" y1="82" x2="420" y2="82"  stroke="#00d2ff" stroke-width="3" stroke-linecap="round"/>
+      <line x1="380" y1="90" x2="420" y2="90"  stroke="#00d2ff" stroke-width="3" stroke-linecap="round"/>
+      <line x1="400" y1="90"  x2="400" y2="120" stroke="#4a7a96" stroke-width="2"/>
+      <text x="430" y="89" fill="#00d2ff" font-size="9">C</text>
+      <text x="443" y="89" fill="#cce8f4" font-size="8">= ? µF</text>
+      <!-- AR Glasses load -->
+      <rect x="540" y="34" width="100" height="90" rx="5" fill="#07111e" stroke="#00d2ff" stroke-width="1.5"/>
+      <text x="590" y="72" fill="#00d2ff" font-size="9" text-anchor="middle">AR DISPLAY</text>
+      <text x="590" y="85" fill="#cce8f4" font-size="8" text-anchor="middle">500mA load</text>
+      <!-- ground symbols -->
+      <line x1="40"  y1="120" x2="40"  y2="135" stroke="#4a7a96" stroke-width="1.5"/>
+      <line x1="30"  y1="135" x2="50"  y2="135" stroke="#4a7a96" stroke-width="1.5"/>
+      <line x1="33"  y1="139" x2="47"  y2="139" stroke="#4a7a96" stroke-width="1.5"/>
+      <line x1="36"  y1="143" x2="44"  y2="143" stroke="#4a7a96" stroke-width="1.5"/>
+      <line x1="640" y1="120" x2="640" y2="135" stroke="#4a7a96" stroke-width="1.5"/>
+      <line x1="630" y1="135" x2="650" y2="135" stroke="#4a7a96" stroke-width="1.5"/>
+      <line x1="633" y1="139" x2="647" y2="139" stroke="#4a7a96" stroke-width="1.5"/>
+      <line x1="636" y1="143" x2="644" y2="143" stroke="#4a7a96" stroke-width="1.5"/>
+      <!-- labels -->
+      <text x="130" y="44" fill="#4a7a96" font-size="9">V_batt</text>
+      <text x="440" y="44" fill="#4a7a96" font-size="9">3.3V rail</text>
+    </svg>
+  </div>
+
+  <!-- ─────────────────── CHAPTER 2: PREDICTION GATE ────────────────────────── -->
+  <div class="section-head">
+    <span class="section-num">02</span>
+    <h2>PREDICTION GATE</h2>
+  </div>
+  <p style="font-size:14px;color:var(--text-muted);margin-bottom:18px;line-height:1.7">
+    Before the simulation unlocks, you must prove you understand the physics.
+    Apply <strong style="color:var(--cyan)">C = I · Δt / ΔV</strong> using the spec values above.
+    Express your answer in µF.
+  </p>
+
+  <div class="task" id="taskPrediction">
+    <div class="task-header">
+      <span class="task-tag">OBJECTIVE 1 OF 3 · CALCULATION</span>
+      <span class="task-status" id="statusPrediction">LOCKED</span>
+    </div>
+    <p class="task-desc">
+      With <strong>I = 500 mA</strong>, <strong>Δt = 1 µs</strong>, and <strong>ΔV = 50 mV</strong> —
+      what is the minimum decoupling capacitance in µF?
+      Enter the exact value; ±10% tolerance is accepted.
+    </p>
+    <label for="predictionInput">MINIMUM CAPACITANCE (µF)</label>
+    <input type="number" id="predictionInput" placeholder="Enter calculated value…" step="0.1" min="0" />
+    <div class="btn-row">
+      <button class="btn-primary" onclick="checkPrediction()">SUBMIT CALCULATION</button>
+    </div>
+    <div class="feedback" id="fbPrediction"></div>
+  </div>
+
+  <!-- ─────────────────── CHAPTER 3: COMPONENT PICKER ────────────────────────── -->
+  <div class="section-head">
+    <span class="section-num">03</span>
+    <h2>COMPONENT SELECTION</h2>
+  </div>
+  <p style="font-size:14px;color:var(--text-muted);margin-bottom:18px;line-height:1.7">
+    Select the smallest standard capacitor that meets or exceeds spec. Over-engineering
+    wastes mass aboard a spacecraft — pick the minimum viable component.
+  </p>
+
+  <div class="task locked" id="taskPicker">
+    <div class="task-header">
+      <span class="task-tag">OBJECTIVE 2 OF 3 · COMPONENT</span>
+      <span class="task-status" id="statusPicker">LOCKED</span>
+    </div>
+    <p class="task-desc">
+      Choose a capacitor from the salvage bin. Mass budget is tight — don't over-spec without reason.
+    </p>
+    <label for="capSelect">SALVAGE BIN — CAPACITOR VALUES</label>
+    <select id="capSelect">
+      <option value="">— select component —</option>
+      <option value="1">1 µF  — ceramic 0402</option>
+      <option value="4.7">4.7 µF  — ceramic 0603</option>
+      <option value="10">10 µF  — ceramic 0805</option>
+      <option value="47">47 µF  — electrolytic</option>
+      <option value="100">100 µF  — electrolytic</option>
+    </select>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="checkPicker()">INSTALL COMPONENT</button>
+    </div>
+    <div class="feedback" id="fbPicker"></div>
+  </div>
+
+  <!-- ─────────────────── CHAPTER 4: OSCILLOSCOPE ────────────────────────── -->
+  <div class="section-head">
+    <span class="section-num">04</span>
+    <h2>OSCILLOSCOPE VERIFICATION</h2>
+  </div>
+  <p style="font-size:14px;color:var(--text-muted);margin-bottom:18px;line-height:1.7">
+    Fine-tune the capacitance using the slider. The waveform must stay below the
+    <strong style="color:var(--red)">50 mV spec line</strong> (red dashed) before you can boot the glasses.
+  </p>
+
+  <div class="task locked" id="taskOscillo">
+    <div class="task-header">
+      <span class="task-tag">OBJECTIVE 3 OF 3 · VERIFICATION</span>
+      <span class="task-status" id="statusOscillo">LOCKED</span>
+    </div>
+    <p class="task-desc">
+      Adjust the capacitance and observe how voltage ripple responds.
+      The rail turns <strong style="color:var(--green)">green</strong> when ripple ≤ 50 mV.
+    </p>
+
+    <div class="slider-wrap">
+      <div class="slider-row">
+        <span class="slider-label">CAPACITANCE</span>
+        <input type="range" id="capSlider" min="1" max="100" value="10"
+               oninput="updateOscillo()" />
+        <span class="slider-value" id="capVal">10 µF</span>
+      </div>
+    </div>
+
+    <div class="oscillo-wrapper">
+      <canvas id="oscilloCanvas"></canvas>
+      <div class="oscillo-overlay">3.3V POWER RAIL · ZENITH-9 DOCK B</div>
+    </div>
+
+    <div class="ripple-readout">
+      RIPPLE: <span class="val" id="rippleVal">—</span> mV
+      &nbsp;|&nbsp; SPEC: ≤ 50 mV
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="submitVerification()">BOOT SMART GLASSES</button>
+      <button class="btn-secondary" onclick="resetSim()">RESET</button>
+    </div>
+    <div class="feedback" id="fbOscillo"></div>
+  </div>
+
+  <!-- ─────────────────── SUCCESS ────────────────────────── -->
+  <div class="success-card" id="successCard">
+    <div class="success-icon">🥽</div>
+    <h2>GLASSES ONLINE</h2>
+    <p>
+      Power rail stable. The AR display is booting. Mission continues.<br/>
+      Submit your simulation to the ToyzHacks 2026 repo before <strong>April 9</strong> to appear
+      on the leaderboard during CMU Carnival Weekend.
+    </p>
+    <a class="cta-btn" href="https://github.com/ToyzElectronicsInc/ToyzHacks2026SmartGlasses" target="_blank" rel="noopener">
+      OPEN GITHUB REPO →
+    </a>
+    <p class="cta-note">See CONTRIBUTING.md for PR format · Title: [TIER 1] Your Name — Brief description</p>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+/* ════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════ */
+const S = { prediction: false, picker: false, oscillo: false };
+const CORRECT_C = 10; // µF: C = 0.5 A × 1e-6 s / 0.05 V = 10 µF
+
+/* ════════════════════════════════════════════════
+   PROGRESS
+════════════════════════════════════════════════ */
+function updateProgress() {
+  const n = [S.prediction, S.picker, S.oscillo].filter(Boolean).length;
+  document.getElementById('progressFill').style.width = (n / 3 * 100) + '%';
+  document.getElementById('progressLabel').textContent =
+    `MISSION STATUS — ${n} / 3 OBJECTIVES COMPLETE`;
+}
+
+function unlock(id) {
+  document.getElementById(id).classList.remove('locked');
+}
+
+function markDone(taskId, statusId) {
+  document.getElementById(taskId).classList.add('complete');
+  const s = document.getElementById(statusId);
+  s.textContent = '✓ COMPLETE';
+  s.classList.add('done');
+}
+
+function showFeedback(id, type, msg) {
+  const el = document.getElementById(id);
+  el.className = 'feedback show ' + type;
+  el.textContent = msg;
+}
+
+/* ════════════════════════════════════════════════
+   OBJECTIVE 1 — PREDICTION
+════════════════════════════════════════════════ */
+function checkPrediction() {
+  const raw = document.getElementById('predictionInput').value;
+  const val = parseFloat(raw);
+
+  if (raw.trim() === '' || isNaN(val)) {
+    showFeedback('fbPrediction', 'info', 'Enter a numeric value in µF.');
+    return;
+  }
+
+  if (val >= 9 && val <= 11) {
+    showFeedback('fbPrediction', 'ok',
+      `✓ Correct — C = 0.5 A × 1 µs ÷ 0.05 V = 10 µF. Prediction verified. Component selector unlocked.`);
+    S.prediction = true;
+    markDone('taskPrediction', 'statusPrediction');
+    unlock('taskPicker');
+    updateProgress();
+  } else if (val > 0 && val < 9) {
+    showFeedback('fbPrediction', 'bad',
+      `✗ Too small — ${val} µF would let ripple exceed 50 mV. Check unit conversions: Δt is 1 µs = 1×10⁻⁶ s.`);
+  } else if (val > 11 && val <= 50) {
+    showFeedback('fbPrediction', 'info',
+      `${val} µF would work electrically, but we need the minimum value. Recheck the formula.`);
+  } else if (val > 50) {
+    showFeedback('fbPrediction', 'bad',
+      `Way over-spec at ${val} µF. The formula is C = I × Δt / ΔV — watch your powers of ten.`);
+  } else {
+    showFeedback('fbPrediction', 'bad', 'Value must be positive. Recheck your calculation.');
+  }
+}
+
+/* ════════════════════════════════════════════════
+   OBJECTIVE 2 — PICKER
+════════════════════════════════════════════════ */
+function checkPicker() {
+  const val = parseFloat(document.getElementById('capSelect').value);
+  if (!val) { showFeedback('fbPicker', 'info', 'Select a capacitor value first.'); return; }
+
+  if (val === CORRECT_C) {
+    showFeedback('fbPicker', 'ok',
+      `✓ 10 µF selected — minimum viable, meets spec exactly. Oscilloscope unlocked.`);
+    S.picker = true;
+    markDone('taskPicker', 'statusPicker');
+    unlock('taskOscillo');
+    updateProgress();
+    updateOscillo();
+  } else if (val < CORRECT_C) {
+    showFeedback('fbPicker', 'bad',
+      `✗ ${val} µF is below the calculated minimum of 10 µF. The glasses will brown-out mid-EVA.`);
+  } else {
+    showFeedback('fbPicker', 'info',
+      `${val} µF works, but you're over-speccing. Mass budget is limited on Zenith-9. Find the minimum.`);
+  }
+}
+
+/* ════════════════════════════════════════════════
+   OSCILLOSCOPE
+════════════════════════════════════════════════ */
+function getRipple(C) {
+  // Physics: ripple = I * Δt / C  (in mV when C in µF)
+  return (0.5 * 1e-6) / (C * 1e-6) * 1000; // → mV
+}
+
+function updateOscillo() {
+  const C = parseFloat(document.getElementById('capSlider').value);
+  const ripple = getRipple(C);
+  document.getElementById('capVal').textContent = C + ' µF';
+
+  const el = document.getElementById('rippleVal');
+  el.textContent = ripple.toFixed(1);
+  el.className = 'val ' + (ripple <= 50 ? 'good' : ripple <= 100 ? 'warn' : 'bad');
+
+  drawOscillo(C, ripple);
+}
+
+function drawOscillo(C, ripple) {
+  const canvas = document.getElementById('oscilloCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = canvas.offsetWidth  * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  ctx.clearRect(0, 0, W, H);
+
+  // background gradient
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#010a14');
+  bg.addColorStop(1, '#010508');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // grid lines
+  ctx.strokeStyle = 'rgba(0,210,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += W / 10) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y <= H; y += H / 5) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // center voltage reference (3.3V)
+  const centerY = H * 0.5;
+  ctx.strokeStyle = 'rgba(0,210,255,0.2)';
+  ctx.setLineDash([8, 4]);
+  ctx.beginPath(); ctx.moveTo(0, centerY); ctx.lineTo(W, centerY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // spec line (50mV — maps to 25% of half-height above center)
+  const halfH = H * 0.38;
+  const specRipplePx = (50 / 500) * halfH * 2; // normalize to view
+  const specY = centerY - (50 / 500) * halfH;
+
+  ctx.strokeStyle = 'rgba(255,59,92,0.7)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(0, specY); ctx.lineTo(W, specY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(255,59,92,0.8)';
+  ctx.font = '10px "Share Tech Mono"';
+  ctx.fillText('50mV SPEC', 6, specY - 4);
+
+  // waveform
+  const amplitude = Math.min((ripple / 500) * halfH, halfH * 0.95);
+  const good = ripple <= 50;
+  const color = good ? '#39ff8a' : ripple <= 100 ? '#ffb830' : '#ff3b5c';
+  const glowColor = good ? 'rgba(57,255,138,0.5)' : ripple <= 100 ? 'rgba(255,184,48,0.5)' : 'rgba(255,59,92,0.5)';
+
+  // glow layer
+  ctx.strokeStyle = glowColor;
+  ctx.lineWidth = 6;
+  ctx.globalAlpha = 0.25;
+  ctx.beginPath();
+  for (let x = 0; x < W; x++) {
+    const t = (x / W) * Math.PI * 12;
+    const y = centerY - Math.sin(t) * amplitude;
+    x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // crisp line
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let x = 0; x < W; x++) {
+    const t = (x / W) * Math.PI * 12;
+    const y = centerY - Math.sin(t) * amplitude;
+    x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // labels
+  ctx.fillStyle = 'rgba(0,210,255,0.4)';
+  ctx.font = '10px "Share Tech Mono"';
+  ctx.fillText('3.3V', 6, centerY - 6);
+  ctx.fillText('GND', 6, H - 8);
+  ctx.fillStyle = color;
+  ctx.fillText(`C = ${C} µF  |  ΔV = ${ripple.toFixed(1)} mV`, W - 185, H - 8);
+}
+
+/* ════════════════════════════════════════════════
+   OBJECTIVE 3 — VERIFICATION
+════════════════════════════════════════════════ */
+function submitVerification() {
+  const C = parseFloat(document.getElementById('capSlider').value);
+  const ripple = getRipple(C);
+
+  if (ripple <= 50) {
+    showFeedback('fbOscillo', 'ok',
+      `✓ Rail stable — ${ripple.toFixed(1)} mV ripple. Well within 50 mV spec. Glasses are booting.`);
+    S.oscillo = true;
+    markDone('taskOscillo', 'statusOscillo');
+    updateProgress();
+    const sc = document.getElementById('successCard');
+    sc.classList.add('show');
+    sc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else {
+    showFeedback('fbOscillo', 'bad',
+      `✗ ${ripple.toFixed(1)} mV exceeds the 50 mV spec. Increase capacitance until the waveform turns green.`);
+  }
+}
+
+function resetSim() {
+  document.getElementById('capSlider').value = '10';
+  document.getElementById('fbOscillo').className = 'feedback';
+  updateOscillo();
+}
+
+/* ════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════ */
+window.addEventListener('load', () => {
+  updateProgress();
+  updateOscillo();
+});
+window.addEventListener('resize', () => {
+  if (!document.getElementById('taskOscillo').classList.contains('locked')) updateOscillo();
+});
+</script>
+</body>
+</html>

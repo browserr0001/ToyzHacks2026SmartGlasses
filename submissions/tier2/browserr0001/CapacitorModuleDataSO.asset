@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: REPLACE_WITH_SO_SCRIPT_GUID, type: 3}
+  m_Name: CapacitorModuleDataSO
+  m_EditorClassIdentifier:
+  # ── GlassesComponentDataSO fields ────────────────────────────────────────
+  componentName: Electrolytic Capacitor 100 uF
+  description: >
+    A 100 µF electrolytic capacitor for the Smart Glasses power rail.
+    Smooths voltage spikes on the PMIC output and stabilises the AR display bus.
+    Rated to 5 V with ultra-low ESR for efficient charge/discharge cycles.
+  capacitance: 0.0001       # 100 µF in Farads
+  esr: 0.05                 # 50 mΩ
+  ratedVoltage: 5.0
+  targetSlotIndex: 0
+  completesCircuit: 1       # placing this completes the capacitor branch
+  componentColor: {r: 0.196, g: 0.588, b: 1.0, a: 1.0}   # electric blue
+  snapDistance: 0.15
